@@ -285,9 +285,56 @@
             background: var(--orange-accent);
         }
 
+        .search-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .search-icon-input {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--orange-accent);
+            font-size: 18px;
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: var(--orange-accent);
+            box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.1);
+        }
+
+        .search-result-item {
+            padding: 12px;
+            border: 1px solid #f3f4f6;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: #fafbfc;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: var(--orange-accent);
+            color: white;
+            border-color: var(--orange-accent);
+        }
+
+        .search-result-item h4 {
+            margin: 0 0 5px 0;
+            font-size: 1.1rem;
+        }
+
+        .search-result-item p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
         .swiper-button-next, .swiper-button-prev {
             color: var(--orange-accent);
-            background: white;
+            background: rgb(245, 245, 245);
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -532,7 +579,7 @@
             <span><i class="fas fa-paw"></i> amor de verdade, em Tatuí-SP</span>
         </div>
         <ul class="nav-links">
-            <li><a href="#">Início</a></li>
+            <li><a href="#inicio">Início</a></li>
             <li><a href="#produtos">Produtos</a></li>
             <li><a href="#servicos">Serviços</a></li>
             <li><a href="#local">Nossa Loja</a></li>
@@ -662,6 +709,18 @@
     </div>
 </footer>
 
+<div id="cartModal" class="modal">
+  <div class="modal-content">
+    <i class="fas fa-times" id="closeCartModal"></i>
+    <h3><i class="fas fa-shopping-cart"></i> Meu Carrinho</h3>
+    <div id="cartItems" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+    <div style="border-top: 2px solid #eee; padding-top: 15px;">
+      <p><strong>Total: <span id="cartTotal">R$ 0,00</span></strong></p>
+      <button class="btn-agendar" id="checkoutBtn" style="width: 100%; background: var(--orange-accent);">Finalizar Compra</button>
+    </div>
+  </div>
+</div>
+
 <div id="agendaModal" class="modal">
     <div class="modal-content">
         <i class="fas fa-times" id="closeAgendaModal"></i>
@@ -670,7 +729,7 @@
             <input type="text" placeholder="Seu nome" id="nomeCliente" required>
             <input type="text" placeholder="Nome do pet" id="nomePet" required>
             <select id="servicoAgenda">
-                <option value="Banho e Tosa Completo">Banho e Tosa Completo (R$ 89,90)</option>
+                <option value="Banho e Tosa Completo">Banho dogo pequeno (R$ 59,90)</option>
                 <option value="Consulta Veterinária">Consulta Veterinária (R$ 120,00)</option>
                 <option value="Tosa Higiênica">Tosa Higiênica (R$ 59,90)</option>
                 <option value="Hidratação de Pelos">Hidratação de Pelos (R$ 49,90)</option>
@@ -681,6 +740,15 @@
         </form>
         <p id="msgAgenda" style="margin-top: 12px; font-size: 0.85rem; text-align: center;"></p>
     </div>
+</div>
+
+<div id="searchModal" class="modal">
+  <div class="modal-content">
+    <i class="fas fa-times" id="closeSearchModal"></i>
+    <h3><i class="fas fa-search"></i> Buscar Produtos</h3>
+    <input type="text" id="searchInput" placeholder="Pesquisar produtos..." style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px;">
+    <div id="searchResults" style="max-height: 300px; overflow-y: auto;"></div>
+  </div>
 </div>
 
 <div id="userModal" class="modal">
@@ -721,48 +789,70 @@
         { id: 6, nome: "Tosa Higiênica", preco: 39.90, img: "tosadogo.jpg", tamanho: 200}
     ];
 
-    function renderProductsCarousel() {
-        const wrapper = document.getElementById('productsWrapper');
-        if (!wrapper) return;
-        wrapper.innerHTML = '';
-        produtosPet.forEach(prod => {
-            const slide = document.createElement('div');
-            slide.className = 'swiper-slide';
-            slide.innerHTML = `
-                <div class="product-img">
-                    <img src="${prod.img}" alt="${prod.nome}">
-                </div>
-                <div class="product-info">
-                    <div class="product-category">${prod.categoria}</div>
-                    <h3>${prod.nome}</h3>
-                    <div class="price">R$ ${prod.preco.toFixed(2)}</div>
-                </div>
-            `;
-            slide.addEventListener('click', () => {
-                showToast(`🐾 ${prod.nome} adicionado ao carrinho!`, "#F97316");
-            });
-            wrapper.appendChild(slide);
+    let meuCarrinho = [];
+
+// Função adicionar (simples)
+function adicionarAoCarrinho(nome, preco) {
+    const itemExistente = meuCarrinho.find(item => item.nome === nome);
+    if(itemExistente) {
+        itemExistente.qtd += 1;
+    } else {
+        meuCarrinho.push({ nome, preco, qtd: 1 });
+    }
+    
+    // Badge no ícone carrinho
+    const cartIcon = document.getElementById('cartIcon');
+    if(cartIcon) {
+        let badge = cartIcon.querySelector('.cart-badge');
+        if(badge) badge.remove();
+        if(meuCarrinho.length > 0) {
+            const novoBadge = document.createElement('span');
+            novoBadge.className = 'cart-badge';
+            novoBadge.textContent = meuCarrinho.reduce((sum, item) => sum + item.qtd, 0);
+            novoBadge.style.cssText = 'position:absolute;top:-8px;right:-8px;background:var(--orange-accent);color:white;border-radius:50%;width:20px;height:20px;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:bold;';
+            cartIcon.appendChild(novoBadge);
+        }
+    }
+}
+
+function renderProductsCarousel() {
+    const wrapper = document.getElementById('productsWrapper');
+    if (!wrapper) return;
+    wrapper.innerHTML = '';
+    
+    produtosPet.forEach(prod => {
+        const slide = document.createElement('div');
+        slide.className = 'swiper-slide';
+        slide.innerHTML = `
+            <div class="product-img">
+                <img src="${prod.img}" alt="${prod.nome}">
+            </div>
+            <div class="product-info">
+                <div class="product-category">${prod.categoria}</div>
+                <h3>${prod.nome}</h3>
+                <div class="price">R$ ${prod.preco.toFixed(2)}</div>
+            </div>
+        `;
+        
+        // ✅ SÓ ISSO AQUI MUDA!
+        slide.addEventListener('click', () => {
+            adicionarAoCarrinho(prod.nome, prod.preco);  // ← ADICIONA DE VERDADE!
+            showToast(`🐾 ${prod.nome} adicionado ao carrinho!`, "#F97316");
         });
         
-        // Inicializar Swiper para produtos
-        new Swiper('.productsSwiper', {
-            slidesPerView: 1,
-            spaceBetween: 20,
-            loop: true,
-            pagination: {
-                el: '.swiper-pagination',
-                clickable: true,
-            },
-            navigation: {
-                nextEl: '.swiper-button-next',
-                prevEl: '.swiper-button-prev',
-            },
-            breakpoints: {
-                640: { slidesPerView: 2 },
-                1024: { slidesPerView: 3 }
-            }
-        });
-    }
+        wrapper.appendChild(slide);
+    });
+    
+    // Resto do Swiper igual...
+    new Swiper('.productsSwiper', {
+        slidesPerView: 1,
+        spaceBetween: 20,
+        loop: true,
+        pagination: { el: '.swiper-pagination', clickable: true },
+        navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+        breakpoints: { 640: { slidesPerView: 2 }, 1024: { slidesPerView: 3 } }
+    });
+}
 
     function renderServicesCarousel() {
         const wrapper = document.getElementById('servicesWrapper');
@@ -842,6 +932,162 @@
         setTimeout(() => toast.remove(), 2800);
     }
 
+    // ========== CARRINHO MODAL ==========
+const cartModal = document.getElementById('cartModal');
+const cartIcon = document.getElementById('cartIcon');
+const closeCart = document.getElementById('closeCartModal');
+const cartItems = document.getElementById('cartItems');
+const cartTotal = document.getElementById('cartTotal');
+const checkoutBtn = document.getElementById('checkoutBtn');
+
+// Array do carrinho (simula itens)
+let carrinho = [];
+
+// Abrir carrinho
+if(cartIcon) {
+  cartIcon.addEventListener('click', () => {
+    atualizarCarrinho();
+    cartModal.style.display = 'flex';
+  });
+}
+
+function atualizarCarrinho() {
+    const cartItems = document.getElementById('cartItems');
+    const cartTotal = document.getElementById('cartTotal');
+    
+    cartItems.innerHTML = '';
+    
+    if(meuCarrinho.length === 0) {
+        cartItems.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">Carrinho vazio 🛒</p>';
+        cartTotal.textContent = 'R$ 0,00';
+        return;
+    }
+    
+    let total = 0;
+    meuCarrinho.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:15px;border:1px solid #eee;border-radius:8px;margin-bottom:10px;background:#f9fafb;';
+        div.innerHTML = `
+            <div>
+                <strong>${item.nome}</strong>
+                <span style="background:#10b981;color:white;padding:2px 6px;border-radius:12px;font-size:0.8rem;margin-left:8px;">${item.qtd}x</span>
+            </div>
+            <div style="text-align:right;">
+                R$ ${(item.preco * item.qtd).toFixed(2).replace('.', ',')}
+                <br><button onclick="removerItem(${index})" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;margin-top:5px;">❌</button>
+            </div>
+        `;
+        cartItems.appendChild(div);
+        total += item.preco * item.qtd;
+    });
+    
+    cartTotal.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+}
+
+// Fechar carrinho
+if(closeCart) {
+  closeCart.addEventListener('click', () => {
+    cartModal.style.display = 'none';
+  });
+}
+
+// Fechar clicando fora (adiciona no seu window.click)
+window.addEventListener('click', (e) => {
+  if(e.target === agendaModal) agendaModal.style.display = 'none';
+  if(e.target === userModal) userModal.style.display = 'none';
+  if(e.target === searchModal) searchModal.style.display = 'none';
+  if(e.target === cartModal) cartModal.style.display = 'none'; // <-- adiciona esta linha
+});
+
+// Função atualizar carrinho
+function atualizarCarrinho() {
+  cartItems.innerHTML = '';
+  
+  if(carrinho.length === 0) {
+    cartItems.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">Carrinho vazio 🛒</p>';
+    cartTotal.textContent = 'R$ 0,00';
+    atualizarBadge();  // ✅ Remove badge quando vazio
+    return;
+  }
+  
+  let total = 0;
+  
+  carrinho.forEach((item, index) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee; background:#f9fafb; border-radius:8px; margin-bottom:5px;';
+    div.innerHTML = `
+      <div>
+        <strong>${item.nome}</strong><br>
+        <small style="color:#666;">${item.qtd}x</small>
+      </div>
+      <div style="text-align:right;">
+        <strong style="color:var(--orange-accent); font-size:1.1rem;">R$ ${(item.preco * item.qtd).toFixed(2).replace('.', ',')}</strong><br>
+        <button onclick="removerItem(${index})" style="margin-top:5px; background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold;">
+          ❌ Remover
+        </button>
+      </div>
+    `;
+    cartItems.appendChild(div);
+    total += item.preco * item.qtd;
+  });
+  
+  cartTotal.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+  atualizarBadge();  // ✅ Atualiza badge
+}
+
+// ✅ FUNÇÃO NOVA: Gerencia o badge PERFEITAMENTE
+function atualizarBadge() {
+  const badge = cartIcon.querySelector('.cart-badge');
+  if(badge) badge.remove();  // Remove sempre
+  
+  if(carrinho.length > 0) {
+    const novoBadge = document.createElement('span');
+    novoBadge.className = 'cart-badge';
+    novoBadge.style.cssText = `
+      position:absolute; top:-8px; right:-8px; 
+      background:var(--orange-accent); color:white; 
+      border-radius:50%; width:20px; height:20px; 
+      font-size:12px; display:flex; align-items:center; 
+      justify-content:center; font-weight:bold; z-index:10;
+    `;
+    novoBadge.textContent = carrinho.reduce((sum, item) => sum + item.qtd, 0);
+    cartIcon.appendChild(novoBadge);
+  }
+}
+
+// Remover item
+function removerItem(index) {
+  carrinho.splice(index, 1);
+  atualizarCarrinho();  // Chama atualizarBadge() internamente
+}
+
+// Finalizar compra
+if(checkoutBtn) {
+  checkoutBtn.addEventListener('click', () => {
+    if(carrinho.length === 0) {
+      alert('Carrinho vazio!');
+      return;
+    }
+    alert(`✅ Compra finalizada!\nTotal: R$ ${cartTotal.textContent}`);
+    carrinho = [];
+    atualizarCarrinho();  // Limpa tudo + remove badge
+    cartModal.style.display = 'none';
+  });
+}
+
+// Adicionar produto
+function adicionarAoCarrinho(nome, preco, qtd = 1) {
+  const itemExistente = carrinho.find(item => item.nome === nome);
+  
+  if(itemExistente) {
+    itemExistente.qtd += qtd;
+  } else {
+    carrinho.push({ nome, preco, qtd });
+  }
+  
+  cartIcon.style.position = 'relative';
+  atualizarBadge();  // ✅ Usa a função nova!
+}
     // Agenda Modal
     const agendaModal = document.getElementById('agendaModal');
     const agendaIcon = document.getElementById('agendaIconBtn');
@@ -933,21 +1179,64 @@
         });
     }
 
-    // Ícones de busca e carrinho
-    const searchIcon = document.getElementById('searchIcon');
-    if(searchIcon) {
-        searchIcon.addEventListener('click', () => {
-            showToast("🔍 Encontre rações, roupinhas, brinquedos e serviços no PET MIA! Visite nossa loja em Tatuí.", "#1E3A8A");
+  // ========== SEARCH MODAL (igual ao agenda) ==========
+const searchModal = document.getElementById('searchModal');
+const searchIcon = document.getElementById('searchIcon');
+const closeSearch = document.getElementById('closeSearchModal');
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+
+if(searchIcon) {
+  searchIcon.addEventListener('click', () => {
+    searchModal.style.display = 'flex';
+  });
+}
+
+if(closeSearch) {
+  closeSearch.addEventListener('click', () => {
+    searchModal.style.display = 'none';
+  });
+}
+
+// Fechar clicando fora (adiciona no seu window.click existente)
+  window.addEventListener('click', (e) => {
+  if(e.target === agendaModal) agendaModal.style.display = 'none';
+  if(e.target === userModal) userModal.style.display = 'none';
+  if(e.target === searchModal) searchModal.style.display = 'none'; // <-- adiciona esta linha
+  });
+
+// Busca simples
+  if(searchInput) {
+  searchInput.addEventListener('input', (e) => {
+    const termo = e.target.value.toLowerCase();
+    searchResults.innerHTML = '';
+    
+    // Seus produtos aqui (exemplo)
+    const produtos = [
+      'Ração Premium Cães', 'Shampoo Antipulgas', 'Brinquedo Mordedor', 
+      'Coleira Reforçada', 'Petisco Frango', 'Tapete Higiênico'
+    ];
+    
+    if(termo.length > 1) {
+      const resultados = produtos.filter(produto => 
+        produto.toLowerCase().includes(termo)
+      );
+      
+      if(resultados.length > 0) {
+        resultados.forEach(produto => {
+          const div = document.createElement('div');
+          div.textContent = produto;
+                div.style.cssText = 'padding: 10px; border-bottom: 1px solid #eee; cursor: pointer;';
+                div.onclick = () => alert(`Produto: ${produto}`);
+                searchResults.appendChild(div);
+            });
+            } else {
+            searchResults.innerHTML = '<p style="text-align:center; color:#999;">Nenhum produto encontrado</p>';
+            }
+        }
         });
     }
-
-    const cartIcon = document.getElementById('cartIcon');
-    if(cartIcon) {
-        cartIcon.addEventListener('click', () => {
-            showToast("🛒 Carrinho de compras: seus produtos favoritos estão te esperando! Confira na loja física.", "#F97316");
-        });
-    }
-
+    
     // Scroll suave para links de navegação
     document.querySelectorAll('.nav-links a').forEach(link => {
         link.addEventListener('click', function(e) {
